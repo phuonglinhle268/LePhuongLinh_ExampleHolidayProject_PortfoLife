@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import MainLayout from '../components/MainLayout';
+import CreatePostModal from '../components/CreatePostModal';
+import type { PostType, PostVisibility } from '../components/CreatePostModal';
 import axiosClient from '../api/axiosClient';
 import Swal from 'sweetalert2';
 import {
@@ -14,7 +16,8 @@ import {
   FiX,
   FiUserCheck,
   FiEyeOff,
-  FiFlag
+  FiFlag,
+  FiSend
 } from 'react-icons/fi';
 
 interface DocumentInfo {
@@ -49,6 +52,10 @@ interface HomePageProps {
   defaultTab?: 'LIFE' | 'STUDY';
 }
 
+const CURRENT_USER_AVATAR =
+  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80';
+const CURRENT_USER_NAME = 'Phạm Anh Thư';
+
 const HomePage: React.FC<HomePageProps> = ({ defaultTab = 'LIFE' }) => {
   const [feedTab, setFeedTab] = useState<'LIFE' | 'STUDY'>(defaultTab);
 
@@ -60,9 +67,10 @@ const HomePage: React.FC<HomePageProps> = ({ defaultTab = 'LIFE' }) => {
   const [loading, setLoading] = useState(false);
 
   // Post form state
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [content, setContent] = useState('');
-  const [postType, setPostType] = useState<'NORMAL' | 'STUDY'>('NORMAL');
-  const [visibility, setVisibility] = useState<'PUBLIC' | 'FRIENDS' | 'PRIVATE'>('PUBLIC');
+  const [postType, setPostType] = useState<PostType>('NORMAL');
+  const [visibility, setVisibility] = useState<PostVisibility>('PUBLIC');
   const [tagInput, setTagInput] = useState('');
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<File | null>(null);
@@ -97,6 +105,15 @@ const HomePage: React.FC<HomePageProps> = ({ defaultTab = 'LIFE' }) => {
   useEffect(() => {
     fetchFeed();
   }, [feedTab]);
+
+  const resetForm = () => {
+    setContent('');
+    setPostType('NORMAL');
+    setVisibility('PUBLIC');
+    setTagInput('');
+    setSelectedImages([]);
+    setSelectedDoc(null);
+  };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -159,11 +176,9 @@ const HomePage: React.FC<HomePageProps> = ({ defaultTab = 'LIFE' }) => {
         timer: 1500,
       });
 
-      // Reset form
-      setContent('');
-      setTagInput('');
-      setSelectedImages([]);
-      setSelectedDoc(null);
+      // Reset form + đóng modal
+      resetForm();
+      setIsCreateModalOpen(false);
 
       // Reload feed
       fetchFeed();
@@ -265,172 +280,86 @@ const HomePage: React.FC<HomePageProps> = ({ defaultTab = 'LIFE' }) => {
 
   return (
     <MainLayout>
-      {/* Create Post Card (Ảnh 5) */}
+      {/* Create Post Trigger Bar - bấm vào sẽ mở CreatePostModal */}
       <div className="bg-white rounded-3xl p-6 border border-[#FCE7EB] mb-6 shadow-sm">
-        <form onSubmit={handleCreatePost} className="space-y-4">
-          <div className="flex items-center space-x-3">
-            {/* User Avatar */}
-            <div className="w-10 h-10 rounded-full bg-[#D02B52] text-white flex items-center justify-center font-bold text-sm uppercase shadow-sm overflow-hidden shrink-0">
-              <img
-                src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80"
-                alt="Avatar"
-                className="w-full h-full object-cover"
-              />
-            </div>
-            {/* Input field */}
-            <input
-              type="text"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Bạn đang nghĩ gì? Chia sẻ hành trình học tập..."
-              className="flex-1 bg-[#FFF5F6] border border-[#FCE7EB] focus:border-[#D02B52] focus:outline-none rounded-full px-5 py-3 text-sm placeholder-gray-400 text-gray-700 transition-all"
-            />
+        <div className="flex items-center space-x-3">
+          {/* User Avatar */}
+          <div className="w-10 h-10 rounded-full bg-[#D02B52] text-white flex items-center justify-center font-bold text-sm uppercase shadow-sm overflow-hidden shrink-0">
+            <img src={CURRENT_USER_AVATAR} alt="Avatar" className="w-full h-full object-cover" />
           </div>
+          {/* Fake input - mở modal khi bấm vào */}
+          <button
+            type="button"
+            onClick={() => setIsCreateModalOpen(true)}
+            className="flex-1 text-left bg-[#FFF5F6] border border-[#FCE7EB] hover:border-[#D02B52] rounded-full px-5 py-3 text-sm text-gray-400 transition-all"
+          >
+            Bạn đang nghĩ gì? Chia sẻ hành trình học tập...
+          </button>
+        </div>
 
-          {/* Expanded parameters (displayed when user starts typing or has attachments) */}
-          {(content.trim() || selectedImages.length > 0 || selectedDoc || postType !== 'NORMAL') && (
-            <div className="pt-2 border-t border-[#FFF2F4] space-y-4 animate-fade-in-up">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Phân loại & Quyền hiển thị - bên trái */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-xs font-bold text-[#8B6B72] uppercase tracking-wider mb-1">
-                      Phân loại
-                    </label>
-                    <select
-                      value={postType}
-                      onChange={(e) => setPostType(e.target.value as any)}
-                      className="w-full px-3 py-3 bg-[#FFF5F6] border border-[#FCE7EB] focus:border-[#D02B52] focus:outline-none rounded-xl text-sm text-gray-700 transition-all"
-                    >
-                      <option value="NORMAL">Cuộc sống (Normal)</option>
-                      <option value="STUDY">Học tập (Study)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-[#8B6B72] uppercase tracking-wider mb-1">
-                      Quyền hiển thị
-                    </label>
-                    <select
-                      value={visibility}
-                      onChange={(e) => setVisibility(e.target.value as any)}
-                      className="w-full px-3 py-3 bg-[#FFF5F6] border border-[#FCE7EB] focus:border-[#D02B52] focus:outline-none rounded-xl text-sm text-gray-700 transition-all"
-                    >
-                      <option value="PUBLIC">Công khai</option>
-                      <option value="FRIENDS">Bạn bè</option>
-                      <option value="PRIVATE">Chỉ mình tôi</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Tags - bên phải, chỉ hiện khi chọn loại bài đăng là Học tập (STUDY) */}
-                {postType === 'STUDY' ? (
-                  <div>
-                    <label className="block text-xs font-bold text-[#8B6B72] uppercase tracking-wider mb-1">
-                      Nhãn dán (tags) - phân tách bằng dấu phẩy
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="MachineLearning, AI, HọcTập"
-                      value={tagInput}
-                      onChange={(e) => setTagInput(e.target.value)}
-                      className="w-full px-4 py-3 bg-[#FFF5F6] border border-[#FCE7EB] focus:border-[#D02B52] focus:outline-none rounded-xl text-sm placeholder-gray-400 text-gray-700 transition-all"
-                    />
-                  </div>
-                ) : (
-                  <div className="hidden md:block" />
-                )}
-              </div>
-
-              {/* Attachments feedback */}
-              {(selectedImages.length > 0 || selectedDoc) && (
-                <div className="bg-[#FFF5F6] p-3 rounded-xl space-y-1.5 border border-[#FCE7EB] text-xs text-gray-500">
-                  {selectedImages.length > 0 && (
-                    <div>
-                      <span className="font-bold">Ảnh đã chọn:</span>{' '}
-                      {selectedImages.map((f, i) => (
-                        <span key={i} className="inline-block bg-white px-2 py-0.5 rounded border mr-1.5">{f.name}</span>
-                      ))}
-                    </div>
-                  )}
-                  {selectedDoc && (
-                    <div>
-                      <span className="font-bold">Tài liệu đính kèm:</span>{' '}
-                      <span className="bg-white px-2 py-0.5 rounded border">{selectedDoc.name}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Bottom Actions Row (Ảnh 5) */}
-          <div className="flex justify-between items-center pt-2">
-            <div className="flex items-center space-x-6 text-sm font-bold text-[#D02B52]">
-              {/* Photo upload option */}
-              <label className="flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity">
-                <FiImage className="text-base shrink-0" />
-                <span>Ảnh/Video</span>
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  className="hidden"
-                />
-              </label>
-
-              {/* Project/Doc upload option */}
-              <label className="flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity">
-                <FiFolder className="text-base shrink-0" />
-                <span>Dự án</span>
-                <input
-                  type="file"
-                  accept=".pdf,.doc,.docx,.xls,.xlsx,.zip"
-                  onChange={handleDocChange}
-                  className="hidden"
-                />
-              </label>
-
-              {/* Emotion option */}
-              <button
-                type="button"
-                onClick={() => {
-                  Swal.fire({
-                    title: 'Chọn cảm xúc',
-                    input: 'select',
-                    inputOptions: {
-                      HAPPY: 'Vui vẻ 😊',
-                      EXCITED: 'Hào hứng 🤩',
-                      TIRED: 'Mệt mỏi 😴',
-                      SAD: 'Buồn bã 😢',
-                    },
-                    confirmButtonColor: '#D02B52',
-                  }).then((res) => {
-                    if (res.value) {
-                      setContent(prev => prev + ' ' + (res.value === 'HAPPY' ? '😊' : res.value === 'EXCITED' ? '🤩' : res.value === 'TIRED' ? '😴' : '😢'));
-                    }
-                  });
-                }}
-                className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
-              >
-                <span className="text-base shrink-0">😊</span>
-                <span>Cảm xúc</span>
-              </button>
-            </div>
-
-            {/* Post button (pill shaped, has send icon inside) */}
+        {/* Bottom Actions Row */}
+        <div className="flex justify-between items-center pt-4">
+          <div className="flex items-center space-x-6 text-sm font-bold text-[#D02B52]">
             <button
-              type="submit"
-              className="px-6 py-3 bg-[#D02B52] hover:bg-[#B01E3E] active:scale-95 text-white text-sm font-bold rounded-full shadow-[0_4px_12px_rgba(208,43,82,0.25)] flex items-center transition-all"
+              type="button"
+              onClick={() => setIsCreateModalOpen(true)}
+              className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
             >
-              <svg className="w-4 h-4 mr-2 fill-current transform rotate-45" viewBox="0 0 20 20">
-                <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
-              </svg>
-              Đăng
+              <FiImage className="text-base shrink-0" />
+              <span>Ảnh/Video</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsCreateModalOpen(true)}
+              className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
+            >
+              <FiFolder className="text-base shrink-0" />
+              <span>Dự án</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsCreateModalOpen(true)}
+              className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
+            >
+              <span className="text-base shrink-0">😊</span>
+              <span>Cảm xúc</span>
             </button>
           </div>
-        </form>
+
+          {/* Post button - bấm vào cũng mở modal */}
+          <button
+            type="button"
+            onClick={() => setIsCreateModalOpen(true)}
+            className="px-6 py-3 bg-[#D02B52] hover:bg-[#B01E3E] active:scale-95 text-white text-sm font-bold rounded-full shadow-[0_4px_12px_rgba(208,43,82,0.25)] flex items-center transition-all"
+          >
+            <FiSend className="w-4 h-4 mr-2" />
+            Đăng
+          </button>
+        </div>
       </div>
+
+      {/* Modal Tạo bài viết (component dùng chung) */}
+      <CreatePostModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={handleCreatePost}
+        currentUserName={CURRENT_USER_NAME}
+        currentUserAvatar={CURRENT_USER_AVATAR}
+        content={content}
+        onContentChange={setContent}
+        postType={postType}
+        onPostTypeChange={setPostType}
+        visibility={visibility}
+        onVisibilityChange={setVisibility}
+        tagInput={tagInput}
+        onTagInputChange={setTagInput}
+        selectedImages={selectedImages}
+        onImageChange={handleImageChange}
+        selectedDoc={selectedDoc}
+        onDocChange={handleDocChange}
+      />
 
       {/* Feed Posts */}
       <div className="space-y-6">
@@ -472,7 +401,7 @@ const HomePage: React.FC<HomePageProps> = ({ defaultTab = 'LIFE' }) => {
                   <FiMoreHorizontal className="text-xl" />
                 </button>
 
-                {/* Dropdown Menu (Screen 5) */}
+                {/* Dropdown Menu */}
                 {activeMenuId === post.id && (
                   <div className="absolute right-0 mt-2 w-64 bg-white border border-[#FCE7EB] rounded-2xl shadow-lg z-20 py-2">
                     {/* Header */}
@@ -536,7 +465,7 @@ const HomePage: React.FC<HomePageProps> = ({ defaultTab = 'LIFE' }) => {
               </div>
             )}
 
-            {/* Post Images (Ảnh 5 - Bo góc rộng, hiển thị đầy đủ) */}
+            {/* Post Images (Bo góc rộng, hiển thị đầy đủ) */}
             {post.imageUrls && post.imageUrls.length > 0 && (
               <div className="mb-4 rounded-2xl overflow-hidden border border-[#FCE7EB]">
                 {post.imageUrls.map((url, i) => (
@@ -572,7 +501,7 @@ const HomePage: React.FC<HomePageProps> = ({ defaultTab = 'LIFE' }) => {
               </div>
             )}
 
-            {/* Interaction Bar (Screen 4) */}
+            {/* Interaction Bar */}
             <div className="flex items-center justify-between border-t border-[#FCE7EB] pt-4 text-sm text-[#8B6B72] font-bold">
               <div className="flex items-center space-x-6">
                 {/* Like Button */}

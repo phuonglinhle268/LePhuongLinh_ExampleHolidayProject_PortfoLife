@@ -149,6 +149,21 @@ public class FriendService {
     }
 
     /**
+     * Thu hồi lời mời kết bạn đã gửi từ senderId tới receiverId.
+     */
+    @Transactional
+    public void cancelFriendRequest(Long senderId, Long receiverId) {
+        FriendRequest request = friendRequestRepository.findBySenderIdAndReceiverId(senderId, receiverId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy lời mời kết bạn"));
+
+        if (request.getStatus() != FriendRequestStatus.PENDING) {
+            throw new RuntimeException("Yêu cầu kết bạn này đã được xử lý");
+        }
+
+        friendRequestRepository.delete(request);
+    }
+
+    /**
      * Hủy kết bạn với friendId.
      */
     @Transactional

@@ -53,6 +53,17 @@ public class FriendController {
     }
 
     /**
+     * Thu hồi yêu cầu kết bạn đã gửi.
+     */
+    @DeleteMapping("/cancel/{userId}")
+    public ApiResponse<Void> cancelFriendRequest(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long userId) {
+        friendService.cancelFriendRequest(userDetails.getUser().getId(), userId);
+        return ApiResponse.success("Thu hồi lời mời kết bạn thành công", null);
+    }
+
+    /**
      * Hủy kết bạn.
      */
     @DeleteMapping("/unfriend/{userId}")

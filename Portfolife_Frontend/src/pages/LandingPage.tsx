@@ -5,11 +5,15 @@ import type { RootState } from '../store';
 
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
-  const { isAuthenticated } = useSelector((state: RootState) => state.auth);
-
+  const { isAuthenticated, user } = useSelector((state: RootState) => state.auth);
+  
   const handleStart = () => {
     if (isAuthenticated) {
-      navigate('/home');
+      if (user?.role === 'ADMIN') {
+        navigate('/admin');
+      } else {
+        navigate('/home');
+      }
     } else {
       navigate('/login');
     }

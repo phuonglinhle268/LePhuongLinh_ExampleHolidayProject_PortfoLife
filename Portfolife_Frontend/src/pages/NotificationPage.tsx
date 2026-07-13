@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import MainLayout from '../components/MainLayout';
+import axiosClient from '../api/axiosClient';
+import Swal from 'sweetalert2';
 
 interface NotificationItem {
   id: number;
@@ -10,82 +12,93 @@ interface NotificationItem {
   read: boolean;
 }
 
-// Dữ liệu mẫu (fix cứng) để dựng giao diện - thay bằng API thật sau
-const NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: 1,
-    name: 'Trần Minh Khoa',
-    action: 'đã thích bài viết của bạn',
-    time: '5 phút trước',
-    avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=100&auto=format&fit=crop&q=80',
-    read: false,
-  },
-  {
-    id: 2,
-    name: 'Lê Thu Hà',
-    action: 'đã bình luận: "Tuyệt vời lắm bạn ơi!"',
-    time: '20 phút trước',
-    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&auto=format&fit=crop&q=80',
-    read: false,
-  },
-  {
-    id: 3,
-    name: 'Vũ Minh Tuấn',
-    action: 'đã gửi lời mời kết bạn cho bạn',
-    time: '1 giờ trước',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80',
-    read: false,
-  },
-  {
-    id: 4,
-    name: 'Hoàng Nam Phong',
-    action: 'đã chia sẻ bài viết của bạn',
-    time: '2 giờ trước',
-    avatar: 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=100&auto=format&fit=crop&q=80',
-    read: true,
-  },
-  {
-    id: 5,
-    name: 'Nguyễn Đức Anh',
-    action: 'đã đề cập đến bạn trong một bình luận',
-    time: '3 giờ trước',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
-    read: true,
-  },
-  {
-    id: 6,
-    name: 'Bùi Thị Lan',
-    action: 'đã thích ảnh hồ sơ mới của bạn',
-    time: '5 giờ trước',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
-    read: true,
-  },
-  {
-    id: 7,
-    name: 'Đỗ Quang Huy',
-    action: 'đã bắt đầu theo dõi bạn',
-    time: '1 ngày trước',
-    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&auto=format&fit=crop&q=80',
-    read: true,
-  },
-];
-
 const NotificationPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'ALL' | 'UNREAD'>('ALL');
-  const [notifications, setNotifications] = useState<NotificationItem[]>(NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchNotifications = async () => {
+    setLoading(true);
+    try {
+      const response: any = await axiosClient.get('/api/v1/notifications');
+      const list = response.data || [];
+      const mapped: NotificationItem[] = list.map((n: any) => ({
+        id: n.id,
+        name: n.sender?.fullName || n.senderName || 'Hệ thống',
+        action: n.content || '',
+        time: formatTime(n.createdAt),
+        avatar: n.sender?.avatarUrl || `https://images.unsplash.com/photo-${1500000000000 + (n.sender?.id || 1) * 10000}?w=100&auto=format&fit=crop&q=80`,
+        read: n.read,
+      }));
+      setNotifications(mapped);
+    } catch (err: any) {
+      console.error(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const formatTime = (timeStr: string) => {
+    if (!timeStr) return '';
+    const d = new Date(timeStr);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+
+    if (diffHrs < 1) return 'Vừa xong';
+    if (diffHrs < 24) return `${diffHrs} giờ trước`;
+    return d.toLocaleDateString('vi-VN');
+  };
+
+  const handleMarkAsRead = async (id: number) => {
+    try {
+      await axiosClient.put(`/api/v1/notifications/${id}/read`);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+      );
+    } catch (err: any) {
+      console.error(err.message);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      Swal.showLoading();
+      await axiosClient.put('/api/v1/notifications/read-all');
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      Swal.fire({
+        icon: 'success',
+        text: 'Đã đánh dấu đọc tất cả thông báo!',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 1500,
+      });
+    } catch (err: any) {
+      Swal.fire('Lỗi', err.message, 'error');
+    }
+  };
 
   const unreadCount = notifications.filter((n) => !n.read).length;
   const list = activeTab === 'ALL' ? notifications : notifications.filter((n) => !n.read);
 
-  const handleMarkAsRead = (id: number) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
-  };
-
   return (
     <MainLayout>
-      <h1 className="text-2xl font-extrabold text-[#1F1315] mb-6">Thông báo</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-extrabold text-[#1F1315]">Thông báo</h1>
+        {unreadCount > 0 && (
+          <button
+            onClick={handleMarkAllAsRead}
+            className="px-4 py-2 bg-[#FFF0F3] hover:bg-[#D02B52] hover:text-white text-[#D02B52] font-bold text-xs rounded-full transition-all"
+          >
+            Đọc tất cả
+          </button>
+        )}
+      </div>
 
       {/* Tabs */}
       <div className="flex items-center space-x-3 mb-6">
@@ -112,7 +125,9 @@ const NotificationPage: React.FC = () => {
       </div>
 
       {/* Notification list */}
-      {list.length === 0 ? (
+      {loading ? (
+        <div className="text-center py-12 text-[#D02B52] font-semibold">Đang tải thông báo...</div>
+      ) : list.length === 0 ? (
         <div className="bg-white rounded-3xl p-12 text-center border border-[#FCE7EB] text-gray-400 font-semibold select-none shadow-sm">
           Không có thông báo nào trong mục này.
         </div>
@@ -121,7 +136,7 @@ const NotificationPage: React.FC = () => {
           {list.map((item, idx) => (
             <div
               key={item.id}
-              onClick={() => handleMarkAsRead(item.id)}
+              onClick={() => !item.read && handleMarkAsRead(item.id)}
               className={`flex items-center px-8 py-5 cursor-pointer hover:bg-[#FFF5F6] transition-colors ${
                 idx !== list.length - 1 ? 'border-b border-[#FCE7EB]' : ''
               }`}

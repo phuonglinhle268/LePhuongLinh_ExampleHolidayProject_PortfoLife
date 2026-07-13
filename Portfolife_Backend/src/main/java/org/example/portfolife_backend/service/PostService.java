@@ -341,7 +341,7 @@ public class PostService {
         }
     }
 
-    public Page<SavedPost> getSavedPosts(Long userId, Pageable pageable) {
-        return savedPostRepository.findByUserId(userId, pageable);
+    public List<SavedPost> getSavedPosts(Long userId) {
+        return savedPostRepository.findByUserIdOrderByIdDesc(userId);
     }
 }

@@ -70,7 +70,11 @@ const LoginPage: React.FC = () => {
         timer: 1500,
       });
 
-      navigate('/home');
+      if (role === 'ADMIN') {
+        navigate('/admin');
+      } else {
+        navigate('/home');
+      }
     } catch (err: any) {
       Swal.fire({
         icon: 'error',

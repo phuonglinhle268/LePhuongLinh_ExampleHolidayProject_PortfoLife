@@ -3,6 +3,8 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../store/slices/authSlice';
 import type { RootState } from '../store';
+import axiosClient from '../api/axiosClient';
+import Swal from 'sweetalert2';
 import {
   FiUser,
   FiFolder,
@@ -49,27 +51,47 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, onSearch, showRightSi
 
   const isActive = (path: string) => location.pathname === path;
 
-  // Suggested friends mock data (Ảnh 4)
-  const suggestedFriends = [
-    {
-      id: 101,
-      name: 'Vũ Minh T...',
-      role: 'Full-Stack ...',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
-    },
-    {
-      id: 102,
-      name: 'Bùi Thị Lan',
-      role: 'Data Scient...',
-      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80',
-    },
-    {
-      id: 103,
-      name: 'Hoàng N...',
-      role: 'Product De...',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80',
-    },
-  ];
+  const [suggestedFriends, setSuggestedFriends] = React.useState<any[]>([]);
+
+  const fetchSuggestions = async () => {
+    try {
+      const response: any = await axiosClient.get('/api/v1/friends/suggestions');
+      const list = response.data || [];
+      const mapped = list.map((item: any) => ({
+        id: item.userId,
+        name: item.fullName || item.username,
+        role: item.bio || 'Thành viên',
+        avatar: item.avatarUrl || `https://images.unsplash.com/photo-${1500000000000 + item.userId * 10000}?w=100&auto=format&fit=crop&q=80`,
+      }));
+      setSuggestedFriends(mapped);
+    } catch (err: any) {
+      console.error('Không thể tải danh sách gợi ý bạn bè:', err.message);
+    }
+  };
+
+  React.useEffect(() => {
+    if (user) {
+      fetchSuggestions();
+    }
+  }, [user]);
+
+  const handleAddFriendFromSidebar = async (userId: number) => {
+    try {
+      Swal.showLoading();
+      await axiosClient.post(`/api/v1/friends/request/${userId}`);
+      Swal.fire({
+        icon: 'success',
+        text: 'Đã gửi lời mời kết bạn!',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 1500,
+      });
+      setSuggestedFriends(prev => prev.filter(f => f.id !== userId));
+    } catch (err: any) {
+      Swal.fire('Lỗi', err.message, 'error');
+    }
+  };
 
   // Trending projects mock data (Ảnh 3)
   const trendingProjects = [
@@ -296,9 +318,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, onSearch, showRightSi
           {children}
         </main>
 
-        {/* Sidebar bên phải - cùng độ rộng với sidebar trái, cuộn độc lập */}
+        {/* Sidebar bên phải - rộng hơn sidebar trái để hiện đủ tên/chức danh trên 1 dòng, cuộn độc lập */}
         {showRightSidebar && (
-          <aside className="w-64 shrink-0 sticky top-24 h-[calc(100vh-7rem)] overflow-y-auto space-y-6">
+          <aside className="w-[22rem] shrink-0 sticky top-24 h-[calc(100vh-7rem)] overflow-y-auto space-y-6">
             {/* Widget 1: Trending */}
             <div className="bg-white rounded-3xl p-6 border border-[#FCE7EB] shadow-sm space-y-5">
               <div className="flex items-center text-[#D02B52] space-x-2">
@@ -358,18 +380,31 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, onSearch, showRightSi
 
             {/* Widget 2: Gợi ý kết bạn */}
             <div className="bg-white rounded-3xl p-6 border border-[#FCE7EB] shadow-sm space-y-4">
-              <h3 className="font-extrabold text-sm text-[#8B6B72] tracking-wider uppercase mb-1">GỢI Ý KẾT BẠN</h3>
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="font-extrabold text-sm text-[#8B6B72] tracking-wider uppercase">
+                  GỢI Ý KẾT BẠN
+                </h3>
+                <Link
+                  to="/friends/suggestions"
+                  className="text-xs font-bold text-[#D02B52] hover:underline shrink-0"
+                >
+                  Xem thêm
+                </Link>
+              </div>
               <div className="space-y-4">
-                {suggestedFriends.map((f) => (
+                {suggestedFriends.slice(0, 3).map((f) => (
                   <div key={f.id} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <img src={f.avatar} alt={f.name} className="w-10 h-10 rounded-full object-cover border" />
-                      <div>
-                        <h4 className="text-sm font-bold text-[#3C131E]">{f.name}</h4>
-                        <p className="text-xs text-gray-400 font-medium">{f.role}</p>
+                    <div className="flex items-center space-x-3 min-w-0">
+                      <img src={f.avatar} alt={f.name} className="w-10 h-10 rounded-full object-cover border shrink-0" />
+                      <div className="min-w-0">
+                        <h4 className="text-sm font-bold text-[#3C131E] whitespace-nowrap truncate">{f.name}</h4>
+                        <p className="text-xs text-gray-400 font-medium whitespace-nowrap truncate">{f.role}</p>
                       </div>
                     </div>
-                    <button className="px-4 py-1.5 border border-[#D02B52] hover:bg-[#D02B52] hover:text-white text-[#D02B52] font-bold text-xs rounded-full transition-all duration-200">
+                    <button
+                      onClick={() => handleAddFriendFromSidebar(f.id)}
+                      className="px-4 py-1.5 border border-[#D02B52] hover:bg-[#D02B52] hover:text-white text-[#D02B52] font-bold text-xs rounded-full transition-all duration-200 shrink-0"
+                    >
                       + Kết bạn
                     </button>
                   </div>

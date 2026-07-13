@@ -235,14 +235,12 @@ public class PostController {
     }
 
     @GetMapping("/saved")
-    public ApiResponse<Page<PostResponse>> getSavedPosts(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+    public ApiResponse<List<PostResponse>> getSavedPosts(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
         
-        Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
-        Page<PostResponse> savedList = postService.getSavedPosts(userDetails.getUser().getId(), pageable)
-                .map(savedPost -> mapToPostResponse(savedPost.getPost()));
+        List<PostResponse> savedList = postService.getSavedPosts(userDetails.getUser().getId()).stream()
+                .map(savedPost -> mapToPostResponse(savedPost.getPost()))
+                .toList();
         
         return ApiResponse.success("Lấy danh sách bài viết đã lưu thành công", savedList);
     }
